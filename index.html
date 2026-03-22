@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code — Multi-Agent Workflow Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ── Reset & base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0d0f11;
+    --bg2:      #13161a;
+    --bg3:      #1a1e24;
+    --bg4:      #21262e;
+    --border:   #2a3040;
+    --border2:  #374152;
+    --text:     #e2e8f0;
+    --muted:    #7a8899;
+    --dim:      #4a5568;
+    --accent:   #4ade80;
+    --accent2:  #22d3ee;
+    --amber:    #fbbf24;
+    --rose:     #fb7185;
+    --purple:   #a78bfa;
+    --radius:   8px;
+    --radius-lg:12px;
+  }
+
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── Noise overlay ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.35;
+  }
+
+  /* ── Layout ── */
+  .shell {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* ── Header ── */
+  header {
+    padding: 40px 0 32px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 36px;
+  }
+  .header-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .logo-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .logo-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(26px, 5vw, 38px);
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.15;
+    letter-spacing: -.02em;
+  }
+  h1 em {
+    font-style: normal;
+    color: var(--accent);
+  }
+  .header-meta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 10px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .header-meta a {
+    color: var(--accent2);
+    text-decoration: none;
+    transition: color .15s;
+  }
+  .header-meta a:hover { color: var(--text); }
+  .gh-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    padding: 5px 12px;
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    color: var(--muted);
+    text-decoration: none;
+    transition: all .15s;
+    white-space: nowrap;
+    margin-top: 4px;
+  }
+  .gh-badge:hover { border-color: var(--accent); color: var(--accent); }
+  .gh-badge svg { width: 14px; height: 14px; fill: currentColor; }
+
+  /* ── Tabs ── */
+  .tab-bar {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 28px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 0;
+  }
+  .tab-bar::-webkit-scrollbar { display: none; }
+  .tab-btn {
+    padding: 10px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all .15s;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .tab-btn .tab-icon { font-size: 13px; }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; animation: fadeUp .2s ease; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Section labels ── */
+  .section-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin-bottom: 14px;
+  }
+
+  /* ── Pattern cards ── */
+  .pattern-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .pattern-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    cursor: pointer;
+    transition: all .18s;
+    position: relative;
+    overflow: hidden;
+  }
+  .pattern-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: transparent;
+    transition: background .18s;
+  }
+  .pattern-card:hover { border-color: var(--border2); background: var(--bg3); }
+  .pattern-card.selected { border-color: var(--accent); background: var(--bg3); }
+  .pattern-card.selected::before { background: var(--accent); }
+  .pat-icon { font-size: 22px; margin-bottom: 8px; }
+  .pat-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 10px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .badge-green  { background: rgba(74,222,128,.12); color: var(--accent); border: 1px solid rgba(74,222,128,.25); }
+  .badge-cyan   { background: rgba(34,211,238,.12); color: var(--accent2); border: 1px solid rgba(34,211,238,.25); }
+  .badge-amber  { background: rgba(251,191,36,.12); color: var(--amber); border: 1px solid rgba(251,191,36,.25); }
+  .badge-purple { background: rgba(167,139,250,.12); color: var(--purple); border: 1px solid rgba(167,139,250,.25); }
+  .badge-rose   { background: rgba(251,113,133,.12); color: var(--rose); border: 1px solid rgba(251,113,133,.25); }
+  .pat-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* ── Code block ── */
+  .code-block {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg3);
+  }
+  .code-header-left {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #febc2e; }
+  .dot-g { background: #28c840; }
+  .code-filename {
+    font-size: 11px;
+    color: var(--muted);
+    margin-left: 4px;
+  }
+  .copy-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 3px 10px;
+    cursor: pointer;
+    transition: all .15s;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .copy-btn.copied { color: var(--accent); border-color: var(--accent); }
+  .code-body {
+    padding: 16px;
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 380px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border2) transparent;
+  }
+  .code-body::-webkit-scrollbar { width: 4px; }
+  .code-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* ── Callouts ── */
+  .callout {
+    border-left: 2px solid;
+    padding: 12px 16px;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    margin-bottom: 14px;
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
+  .callout-title { font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+  .callout.tip  { border-color: var(--accent);  background: rgba(74,222,128,.06); }
+  .callout.tip .callout-title  { color: var(--accent); }
+  .callout.warn { border-color: var(--amber);   background: rgba(251,191,36,.06); }
+  .callout.warn .callout-title { color: var(--amber); }
+  .callout.info { border-color: var(--accent2); background: rgba(34,211,238,.06); }
+  .callout.info .callout-title { color: var(--accent2); }
+  .callout p { color: var(--muted); }
+  .callout code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: var(--bg4);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--text);
+  }
+
+  /* ── Generator tab ── */
+  .field-label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    letter-spacing: .04em;
+  }
+  .task-list { margin-bottom: 10px; }
+  .task-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+    animation: fadeUp .15s ease;
+  }
+  .task-num {
+    font-size: 11px;
+    color: var(--dim);
+    min-width: 22px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  input[type="text"], select {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 8px 12px;
+    transition: border-color .15s;
+    outline: none;
+  }
+  input[type="text"] { flex: 1; }
+  input[type="text"]:focus, select:focus { border-color: var(--border2); }
+  select { padding-right: 8px; cursor: pointer; }
+  .task-del {
+    width: 28px; height: 28px;
+    background: none;
+    border: none;
+    color: var(--dim);
+    cursor: pointer;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px;
+    transition: all .15s;
+    flex-shrink: 0;
+  }
+  .task-del:hover { background: rgba(251,113,133,.12); color: var(--rose); }
+  .add-task {
+    width: 100%;
+    background: none;
+    border: 1px dashed var(--border2);
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 9px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all .15s;
+    margin-bottom: 18px;
+  }
+  .add-task:hover { border-color: var(--accent); color: var(--accent); background: rgba(74,222,128,.04); }
+
+  .options-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .option-group { display: flex; flex-direction: column; gap: 6px; }
+
+  .gen-btn {
+    width: 100%;
+    padding: 12px;
+    background: var(--accent);
+    color: #0d0f11;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .15s;
+    letter-spacing: .02em;
+    margin-bottom: 20px;
+  }
+  .gen-btn:hover { background: #6ee7a0; transform: translateY(-1px); }
+  .gen-btn:active { transform: translateY(0); }
+
+  /* ── Routing table ── */
+  .rt-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    margin-bottom: 20px;
+  }
+  .rt-table th {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--dim);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .rt-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+    vertical-align: top;
+    line-height: 1.55;
+  }
+  .rt-table tr:last-child td { border-bottom: none; }
+  .rt-table tr:hover td { background: var(--bg2); color: var(--text); }
+  .rt-table td strong { color: var(--text); font-weight: 500; }
+  .cond-tag {
+    display: inline-block;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-bottom: 5px;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+  .cond-all { background: rgba(74,222,128,.12); color: var(--accent); }
+  .cond-any { background: rgba(34,211,238,.12); color: var(--accent2); }
+  .rt-ex { font-size: 11px; color: var(--dim); font-style: italic; }
+
+  /* ── Agents grid ── */
+  .agents-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .agent-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px;
+    transition: border-color .15s;
+  }
+  .agent-card:hover { border-color: var(--border2); }
+  .agent-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 5px;
+  }
+  .agent-desc { font-size: 11.5px; color: var(--muted); line-height: 1.5; margin-bottom: 9px; }
+  .agent-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+
+  /* ── Footer ── */
+  footer {
+    margin-top: 60px;
+    border-top: 1px solid var(--border);
+    padding: 28px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--dim);
+  }
+  footer a { color: var(--muted); text-decoration: none; transition: color .15s; }
+  footer a:hover { color: var(--accent); }
+  .footer-links { display: flex; gap: 20px; }
+
+  /* ── Cross-tool nav ── */
+  .tool-nav { display: flex; gap: 8px; padding: 14px 0; border-bottom: 1px solid var(--border); align-items: center; overflow-x: auto; scrollbar-width: none; }
+  .tool-nav::-webkit-scrollbar { display: none; }
+  .tool-nav-label { font-size: 10px; color: var(--dim); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; margin-right: 4px; }
+  .tool-link { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500; padding: 5px 12px; border: 1px solid var(--border); border-radius: 20px; text-decoration: none; color: var(--muted); transition: all .15s; white-space: nowrap; }
+  .tool-link:hover { border-color: var(--border2); color: var(--text); }
+  .tool-link.active { border-color: var(--accent); color: var(--accent); background: rgba(74,222,128,.06); }
+  .tl-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  .tl-green { background: #4ade80; }
+  .tl-blue  { background: #38bdf8; }
+
+  /* ── Scrollbar global ── */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* ── Responsive ── */
+  @media (max-width: 580px) {
+    .options-row { grid-template-columns: 1fr; }
+    .pattern-grid { grid-template-columns: 1fr; }
+    .agents-grid { grid-template-columns: 1fr; }
+    .rt-table th:last-child, .rt-table td:last-child { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Cross-tool nav -->
+  <nav class="tool-nav" aria-label="Switch tool">
+    <span class="tool-nav-label">Also:</span>
+    <a class="tool-link active" href="index.html"><span class="tl-dot tl-green"></span> Claude Code</a>
+    <a class="tool-link" href="opencode.html"><span class="tl-dot tl-blue"></span> OpenCode</a>
+  </nav>
+
+  <!-- Header -->
+  <header>
+    <div class="header-top">
+      <div>
+        <div class="logo-row">
+          <div class="logo-icon">⌘</div>
+          <span class="logo-label">Claude Code</span>
+        </div>
+        <h1>Multi-Agent<br><em>Workflow Builder</em></h1>
+        <div class="header-meta">
+          <span>Six dispatch patterns · Prompt generator · CLAUDE.md rules · Custom agent template</span>
+        </div>
+      </div>
+      <a class="gh-badge" href="https://github.com" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        Star on GitHub
+      </a>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <nav class="tab-bar" role="tablist" aria-label="Main sections">
+    <button class="tab-btn active" onclick="showTab('patterns', this)" role="tab" aria-selected="true">
+      <span class="tab-icon">◈</span> Patterns
+    </button>
+    <button class="tab-btn" onclick="showTab('generator', this)" role="tab">
+      <span class="tab-icon">⚙</span> Prompt Generator
+    </button>
+    <button class="tab-btn" onclick="showTab('routing', this)" role="tab">
+      <span class="tab-icon">⇢</span> Routing Rules
+    </button>
+    <button class="tab-btn" onclick="showTab('agents', this)" role="tab">
+      <span class="tab-icon">⊙</span> Agents
+    </button>
+  </nav>
+
+  <!-- ── TAB: PATTERNS ── -->
+  <section class="tab-panel active" id="tab-patterns" role="tabpanel">
+    <div class="section-label">Select a dispatch pattern</div>
+    <div class="pattern-grid" id="pattern-grid">
+      <!-- injected by JS -->
+    </div>
+    <div id="pattern-detail"></div>
+
+    <div class="callout tip">
+      <div class="callout-title">Key principle</div>
+      <p>Each sub-agent gets its own 200k context window. Parallelising 4 tasks costs roughly the same time as the slowest single task. Context isolation also prevents quality degradation on large codebases.</p>
+    </div>
+    <div class="callout warn">
+      <div class="callout-title">Watch out for</div>
+      <p>Sub-agents cannot spawn their own sub-agents (no nesting). If two agents modify the same file simultaneously, merge conflicts occur — assign clear file boundaries per agent. Use <code>--dangerously-skip-permissions</code> only in isolated CI containers.</p>
+    </div>
+  </section>
+
+  <!-- ── TAB: GENERATOR ── -->
+  <section class="tab-panel" id="tab-generator" role="tabpanel">
+    <div class="section-label">Build your multi-agent prompt</div>
+
+    <div class="field-label">Tasks (one per sub-agent)</div>
+    <div class="task-list" id="task-list"></div>
+    <button class="add-task" onclick="addTask()">+ add task</button>
+
+    <div class="options-row">
+      <div class="option-group">
+        <div class="field-label">Dispatch mode</div>
+        <select id="dispatch-mode">
+          <option value="parallel">Parallel</option>
+          <option value="sequential">Sequential pipeline</option>
+          <option value="background">Background (async)</option>
+          <option value="fanout">Fan-out + synthesise</option>
+        </select>
+      </div>
+      <div class="option-group">
+        <div class="field-label">Output format</div>
+        <select id="output-format">
+          <option value="file">Save to separate files</option>
+          <option value="summary">Return summaries</option>
+          <option value="combined">Combine into one file</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="gen-btn" onclick="generatePrompt()">Generate Claude Code prompt →</button>
+
+    <div id="prompt-output" style="display:none;"></div>
+  </section>
+
+  <!-- ── TAB: ROUTING ── -->
+  <section class="tab-panel" id="tab-routing" role="tabpanel">
+    <div class="section-label">Automatic routing rules</div>
+    <p style="font-size:12.5px; color:var(--muted); margin-bottom:18px; line-height:1.6;">
+      Add these rules to <code style="font-size:11px; background:var(--bg4); padding:1px 5px; border-radius:3px;">.claude/CLAUDE.md</code> so Claude automatically picks the right pattern — no need to specify it each time.
+    </p>
+
+    <table class="rt-table">
+      <thead>
+        <tr>
+          <th>Pattern</th>
+          <th>Conditions</th>
+          <th>Example use case</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Parallel</strong></td>
+          <td>
+            <span class="cond-tag cond-all">ALL must be true</span><br>
+            3+ unrelated tasks<br>No shared state<br>Clear file boundaries
+          </td>
+          <td class="rt-ex">Explore 4 dirs simultaneously; research 5 competitors</td>
+        </tr>
+        <tr>
+          <td><strong>Sequential</strong></td>
+          <td>
+            <span class="cond-tag cond-any">ANY triggers it</span><br>
+            B depends on A's output<br>Shared files or state<br>Unclear scope upfront
+          </td>
+          <td class="rt-ex">Plan → implement → review pipeline</td>
+        </tr>
+        <tr>
+          <td><strong>Background</strong></td>
+          <td>
+            Research or analysis only<br>Not blocking current work<br>Results deferred
+          </td>
+          <td class="rt-ex">Auth research while coding the UI</td>
+        </tr>
+        <tr>
+          <td><strong>Fan-out</strong></td>
+          <td>
+            Large batch of similar items<br>N files / docs / sections<br>Results need synthesis
+          </td>
+          <td class="rt-ex">Summarise 20 meeting transcripts, combine into digest</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="section-label">CLAUDE.md snippet</div>
+    <div class="code-block">
+      <div class="code-header">
+        <div class="code-header-left">
+          <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+          <span class="code-filename">.claude/CLAUDE.md</span>
+        </div>
+        <button class="copy-btn" onclick="copyEl('routing-code', this)">
+          <span>copy</span>
+        </button>
+      </div>
+      <pre class="code-body" id="routing-code">## Sub-agent routing
+
+**Parallel dispatch** — ALL conditions must be met:
+- 3+ unrelated tasks or independent domains
+- No shared state between tasks
+- Clear file boundaries with no overlap
+
+**Sequential dispatch** — ANY condition triggers:
+- Tasks have dependencies (B needs output from A)
+- Shared files or state (merge conflict risk)
+- Unclear scope (understand before proceeding)
+
+**Background dispatch**:
+- Research or analysis tasks (not file modifications)
+- Results aren't blocking your current work
+
+**Invocation requirements** — every sub-agent dispatch must include:
+1. Explicit scope and file references
+2. Expected output format (file path or summary)
+3. Success criteria
+4. Dependencies on other agents (if any)</pre>
+    </div>
+
+    <div class="callout info">
+      <div class="callout-title">Pro tip</div>
+      <p>Be explicit: <code>"use 5 parallel tasks"</code> is clearer than <code>"parallelise this"</code>. Specify what each agent focuses on to prevent overlap. Scoped file ownership is the single biggest factor in conflict-free parallel runs.</p>
+    </div>
+  </section>
+
+  <!-- ── TAB: AGENTS ── -->
+  <section class="tab-panel" id="tab-agents" role="tabpanel">
+    <div class="section-label">Built-in sub-agents</div>
+    <div class="agents-grid">
+      <div class="agent-card">
+        <div class="agent-name">Explore</div>
+        <div class="agent-desc">Fast read-only agent for searching and analysing codebases. Optimised for file discovery and code search. Makes no writes.</div>
+        <div class="agent-tags">
+          <span class="badge badge-green">auto-invoked</span>
+          <span class="badge badge-cyan">read-only</span>
+        </div>
+      </div>
+      <div class="agent-card">
+        <div class="agent-name">Plan</div>
+        <div class="agent-desc">Codebase research during plan mode. Prevents infinite nesting by handling deep research in its own context window.</div>
+        <div class="agent-tags">
+          <span class="badge badge-amber">plan mode</span>
+        </div>
+      </div>
+      <div class="agent-card">
+        <div class="agent-name">General-purpose</div>
+        <div class="agent-desc">Handles multi-step tasks requiring both exploration and file modification. Delegates subtasks when scope grows.</div>
+        <div class="agent-tags">
+          <span class="badge badge-green">read + write</span>
+        </div>
+      </div>
+      <div class="agent-card">
+        <div class="agent-name">Custom agents</div>
+        <div class="agent-desc">Define specialist agents in <code style="font-size:10px; color:var(--text); background:var(--bg4); padding:1px 4px; border-radius:3px;">.claude/agents/</code> with custom prompts, tool restrictions, and permission modes.</div>
+        <div class="agent-tags">
+          <span class="badge badge-purple">user-defined</span>
+          <span class="badge badge-cyan">reusable</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-label">Custom agent template</div>
+    <div class="code-block">
+      <div class="code-header">
+        <div class="code-header-left">
+          <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+          <span class="code-filename">.claude/agents/frontend-specialist.md</span>
+        </div>
+        <button class="copy-btn" onclick="copyEl('agent-tpl', this)"><span>copy</span></button>
+      </div>
+      <pre class="code-body" id="agent-tpl">---
+name: frontend-specialist
+description: >
+  Handles React components, CSS, and UI implementation.
+  Invoke when building or modifying frontend files in
+  src/components/, src/pages/, or src/styles/.
+model: claude-haiku-4-5  # cheaper for routine UI work
+tools:
+  - read_file
+  - write_file
+  - search_files
+allowed_paths:
+  - src/components/**
+  - src/pages/**
+  - src/styles/**
+---
+
+You are a frontend specialist. Focus exclusively on:
+- React components with TypeScript
+- Tailwind CSS styling
+- Accessibility (ARIA, semantic HTML)
+- Component tests with React Testing Library
+
+Save your output to the file path provided.
+Return a one-paragraph summary of what you built.</pre>
+    </div>
+
+    <div class="callout tip">
+      <div class="callout-title">Cost tip</div>
+      <p>Set specialist agents to use <code>claude-haiku-4-5</code> for routine tasks (UI boilerplate, test generation, docs). Reserve Sonnet for the orchestrator and Opus for architecture decisions. This cuts token costs by 5–10× on large fan-outs.</p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <span>Claude Code Multi-Agent Workflow Builder · Open source</span>
+    <div class="footer-links">
+      <a href="https://docs.anthropic.com/en/docs/claude-code/overview" target="_blank" rel="noopener">Docs</a>
+      <a href="https://github.com" target="_blank" rel="noopener">GitHub</a>
+      <a href="opencode.html">OpenCode ↗</a>
+    </div>
+  </footer>
+
+</div><!-- /shell -->
+
+<script>
+/* ── Patterns data ── */
+const PATTERNS = [
+  {
+    id: 'parallel',
+    icon: '⇉',
+    name: 'Parallel',
+    badge: { label: 'fast', cls: 'badge-green' },
+    desc: 'Independent tasks run simultaneously. Best for research, exploration, and analysis across separate domains.',
+    example: {
+      filename: 'parallel-example.txt',
+      code: `Explore this codebase using 4 parallel sub-agents.
+Each agent focuses on a different layer:
+
+- Agent 1: frontend/ — components, routing, state
+- Agent 2: backend/ — API routes, controllers, middleware
+- Agent 3: db/ — schema, migrations, queries
+- Agent 4: tests/ — coverage, fixtures, integration tests
+
+Each agent saves findings to explore-{layer}.md.
+After all complete, synthesise into architecture-summary.md.`
+    }
+  },
+  {
+    id: 'sequential',
+    icon: '→',
+    name: 'Sequential',
+    badge: { label: 'safe', cls: 'badge-cyan' },
+    desc: 'Each agent waits for the prior result. Use when output of step A is the input to step B.',
+    example: {
+      filename: 'sequential-example.txt',
+      code: `Run a sequential three-stage pipeline:
+
+Stage 1 — Plan agent:
+  Research src/ and produce implementation-plan.md
+  with file list, interfaces, and task breakdown.
+
+Stage 2 — Engineer agent (after Stage 1):
+  Read implementation-plan.md and implement all tasks.
+  Write each file and save a changelog to changes.md.
+
+Stage 3 — Reviewer agent (after Stage 2):
+  Read changes.md and all modified files.
+  Run linting, check types, write review.md
+  with issues found and suggested fixes.`
+    }
+  },
+  {
+    id: 'background',
+    icon: '⊙',
+    name: 'Background',
+    badge: { label: 'async', cls: 'badge-amber' },
+    desc: 'Agent runs detached. Press Ctrl+B to background mid-task. Use /tasks to check status.',
+    example: {
+      filename: 'background-example.txt',
+      code: `Spawn a background sub-agent to research
+authentication best practices for our Next.js app.
+Cover: JWT vs session cookies, OAuth2 patterns, PKCE flow.
+Save results to research/auth-patterns.md.
+
+While the research agent runs in the background,
+let's continue working on the UI components in src/components/.
+
+Check status anytime with: /tasks`
+    }
+  },
+  {
+    id: 'fanout',
+    icon: '⤳',
+    name: 'Fan-out / Reduce',
+    badge: { label: 'scale', cls: 'badge-purple' },
+    desc: 'Orchestrator splits work into N parallel agents, then synthesises all results into one output.',
+    example: {
+      filename: 'fanout-example.txt',
+      code: `Process all 12 meeting transcripts in /meetings/
+using 12 parallel sub-agents (one per file).
+
+Each agent extracts:
+  - Key decisions made
+  - Action items with owners
+  - Blockers raised
+  - Follow-up dates
+
+Each agent saves to summaries/{filename}-summary.md.
+
+Once all 12 agents complete, synthesise everything
+into weekly-digest.md grouped by owner.`
+    }
+  },
+  {
+    id: 'pipeline',
+    icon: '⛓',
+    name: 'Pipeline',
+    badge: { label: 'structured', cls: 'badge-rose' },
+    desc: 'Multi-stage chain: PM agent → Engineer agent → Reviewer agent. Each gets prior output as context.',
+    example: {
+      filename: 'pipeline-example.txt',
+      code: `Run a three-agent product pipeline for
+the Stripe payment integration feature:
+
+Agent 1 (product-manager):
+  Read docs/stripe-api.md and write a detailed ticket
+  to tickets/stripe-integration.md with acceptance
+  criteria and edge cases.
+
+Agent 2 (engineer) — after Agent 1:
+  Read tickets/stripe-integration.md and implement
+  the feature in src/payments/.
+  Save diff summary to changes/stripe.md.
+
+Agent 3 (qa-reviewer) — after Agent 2:
+  Read changes/stripe.md and all modified files.
+  Write tests to tests/payments/ and produce
+  qa-report.md with pass/fail status.`
+    }
+  },
+  {
+    id: 'specialist',
+    icon: '◈',
+    name: 'Specialists',
+    badge: { label: 'modular', cls: 'badge-cyan' },
+    desc: 'Domain experts in .claude/agents/ — invoked automatically when task description matches.',
+    example: {
+      filename: 'specialist-example.txt',
+      code: `Use 3 parallel specialist agents to scaffold
+the new user profile feature:
+
+- backend-specialist: Create REST endpoints in
+  src/api/profile.ts with CRUD operations.
+
+- frontend-specialist: Build the ProfileCard and
+  ProfileEditor React components in src/components/profile/.
+
+- test-specialist: Write integration tests for
+  both the API and components in tests/profile/.
+
+All agents read the spec from docs/profile-spec.md.
+No agent touches another agent's file boundary.`
+    }
+  }
+];
+
+let selectedPatternId = 'parallel';
+
+function renderPatterns() {
+  const grid = document.getElementById('pattern-grid');
+  grid.innerHTML = PATTERNS.map(p => `
+    <div class="pattern-card${p.id === selectedPatternId ? ' selected' : ''}"
+         onclick="selectPattern('${p.id}')"
+         role="button" tabindex="0"
+         onkeydown="if(event.key==='Enter'||event.key===' ')selectPattern('${p.id}')">
+      <div class="pat-icon">${p.icon}</div>
+      <div class="pat-name">${p.name} <span class="badge ${p.badge.cls}">${p.badge.label}</span></div>
+      <div class="pat-desc">${p.desc}</div>
+    </div>`).join('');
+}
+
+function selectPattern(id) {
+  selectedPatternId = id;
+  renderPatterns();
+  const p = PATTERNS.find(x => x.id === id);
+  document.getElementById('pattern-detail').innerHTML = `
+    <div class="code-block">
+      <div class="code-header">
+        <div class="code-header-left">
+          <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+          <span class="code-filename">${p.example.filename}</span>
+        </div>
+        <button class="copy-btn" onclick="copyEl('pat-code', this)"><span>copy</span></button>
+      </div>
+      <pre class="code-body" id="pat-code">${escHtml(p.example.code)}</pre>
+    </div>`;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ── Tab switching ── */
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+  document.getElementById('tab-'+name).classList.add('active');
+  if (btn) { btn.classList.add('active'); btn.setAttribute('aria-selected','true'); }
+}
+
+/* ── Generator ── */
+let tasks = [
+  { label: 'Explore frontend components in src/', role: 'explore' },
+  { label: 'Analyse backend API routes in api/', role: 'explore' },
+  { label: 'Review test coverage in tests/', role: 'review' }
+];
+
+const ROLES = ['explore','implement','review','research','test','docs','plan'];
+
+function renderTasks() {
+  document.getElementById('task-list').innerHTML = tasks.map((t, i) => `
+    <div class="task-row">
+      <span class="task-num">${i+1}.</span>
+      <input type="text" value="${escAttr(t.label)}"
+             placeholder="Describe what this agent does..."
+             oninput="tasks[${i}].label=this.value" />
+      <select onchange="tasks[${i}].role=this.value">
+        ${ROLES.map(r => `<option value="${r}"${t.role===r?' selected':''}>${r}</option>`).join('')}
+      </select>
+      <button class="task-del" onclick="removeTask(${i})" aria-label="Remove task">×</button>
+    </div>`).join('');
+}
+
+function escAttr(s) {
+  return s.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function addTask() {
+  tasks.push({ label: '', role: 'explore' });
+  renderTasks();
+  // focus new input
+  const inputs = document.querySelectorAll('.task-row input[type=text]');
+  if (inputs.length) inputs[inputs.length-1].focus();
+}
+
+function removeTask(i) {
+  if (tasks.length === 1) return;
+  tasks.splice(i, 1);
+  renderTasks();
+}
+
+function generatePrompt() {
+  const mode = document.getElementById('dispatch-mode').value;
+  const fmt  = document.getElementById('output-format').value;
+  const valid = tasks.filter(t => t.label.trim());
+  if (!valid.length) return;
+
+  const outNote = fmt === 'file'     ? 'Save output to a dedicated markdown file.'
+                : fmt === 'summary'  ? 'Return a concise summary when done.'
+                                     : 'Append your findings to combined-output.md.';
+
+  let prompt = '';
+
+  if (mode === 'parallel') {
+    prompt = `Use ${valid.length} parallel sub-agents to work simultaneously:\n\n`;
+    valid.forEach((t, i) => {
+      prompt += `Agent ${i+1} (${t.role}): ${t.label}\n  → ${outNote}\n\n`;
+    });
+    prompt += fmt === 'combined'
+      ? `After all agents complete, synthesise their outputs into a final combined-output.md.`
+      : `Run all agents in parallel. Each operates in its own isolated context window.`;
+  }
+  else if (mode === 'sequential') {
+    prompt = `Run a sequential pipeline — each stage waits for the prior to complete:\n\n`;
+    valid.forEach((t, i) => {
+      prompt += `Stage ${i+1} — ${t.role} agent:\n  ${t.label}\n  ${outNote}\n`;
+      if (i < valid.length - 1) prompt += `  (Pass results to Stage ${i+2})\n`;
+      prompt += '\n';
+    });
+  }
+  else if (mode === 'background') {
+    prompt = `Spawn background sub-agents for the following tasks.\nPress Ctrl+B to background each, then use /tasks to check status.\n\n`;
+    valid.forEach((t, i) => {
+      prompt += `Background agent ${i+1} (${t.role}): ${t.label}\n  → ${outNote}\n\n`;
+    });
+    prompt += `Continue the main conversation while these agents run.`;
+  }
+  else if (mode === 'fanout') {
+    prompt = `Fan out to ${valid.length} parallel specialist agents, then synthesise:\n\n`;
+    valid.forEach((t, i) => {
+      prompt += `Specialist ${i+1} (${t.role}): ${t.label}\n  → ${outNote}\n\n`;
+    });
+    prompt += `After all specialists complete, merge their outputs into a unified summary.\nEnsure no file is modified by more than one specialist to avoid conflicts.`;
+  }
+
+  const out = document.getElementById('prompt-output');
+  out.style.display = 'block';
+  out.innerHTML = `
+    <div class="code-block">
+      <div class="code-header">
+        <div class="code-header-left">
+          <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+          <span class="code-filename">generated-prompt.txt</span>
+        </div>
+        <button class="copy-btn" onclick="copyEl('gen-output', this)"><span>copy</span></button>
+      </div>
+      <pre class="code-body" id="gen-output">${escHtml(prompt.trim())}</pre>
+    </div>
+    <p style="font-size:11.5px; color:var(--muted); margin-top:8px;">Paste this directly into your Claude Code session.</p>`;
+  out.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/* ── Copy helper ── */
+function copyEl(id, btn) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    const span = btn.querySelector('span') || btn;
+    const orig = span.textContent;
+    span.textContent = '✓ copied';
+    btn.classList.add('copied');
+    setTimeout(() => { span.textContent = orig; btn.classList.remove('copied'); }, 1800);
+  }).catch(() => {
+    // Fallback for older browsers
+    const ta = document.createElement('textarea');
+    ta.value = el.textContent;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  });
+}
+
+/* ── Init ── */
+renderPatterns();
+selectPattern('parallel');
+renderTasks();
+</script>
+</body>
+</html>

@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenCode — Multi-Agent Workflow Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0c0f14;
+    --bg2:      #121720;
+    --bg3:      #181f2a;
+    --bg4:      #1f2836;
+    --border:   #253045;
+    --border2:  #334060;
+    --text:     #dde6f0;
+    --muted:    #6b85a0;
+    --dim:      #3d5070;
+    --accent:   #38bdf8;
+    --accent2:  #34d399;
+    --amber:    #fbbf24;
+    --rose:     #fb7185;
+    --purple:   #a78bfa;
+    --orange:   #fb923c;
+    --radius:   8px;
+    --radius-lg:12px;
+  }
+
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.3;
+  }
+
+  .shell { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 0 24px 80px; }
+
+  /* ── Cross-tool nav ── */
+  .tool-nav {
+    display: flex;
+    gap: 8px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0;
+    align-items: center;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tool-nav::-webkit-scrollbar { display: none; }
+  .tool-nav-label { font-size: 10px; color: var(--dim); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; margin-right: 4px; }
+  .tool-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 500;
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    text-decoration: none;
+    color: var(--muted);
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .tool-link:hover { border-color: var(--border2); color: var(--text); }
+  .tool-link.active { border-color: var(--accent); color: var(--accent); background: rgba(56,189,248,.06); }
+  .tool-link .tl-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .tl-green { background: #4ade80; }
+  .tl-blue  { background: #38bdf8; }
+
+  /* ── Header ── */
+  header { padding: 32px 0 28px; border-bottom: 1px solid var(--border); margin-bottom: 32px; }
+  .header-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .logo-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0;
+    color: #0c0f14;
+  }
+  .logo-label { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: .08em; text-transform: uppercase; }
+  h1 { font-family: 'Syne', sans-serif; font-size: clamp(26px, 5vw, 38px); font-weight: 800; color: var(--text); line-height: 1.15; letter-spacing: -.02em; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .header-meta { font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .gh-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; padding: 5px 12px;
+    border: 1px solid var(--border2); border-radius: 20px;
+    color: var(--muted); text-decoration: none; transition: all .15s;
+    white-space: nowrap; margin-top: 4px;
+  }
+  .gh-badge:hover { border-color: var(--accent); color: var(--accent); }
+  .gh-badge svg { width: 14px; height: 14px; fill: currentColor; }
+
+  /* ── Tabs ── */
+  .tab-bar { display: flex; gap: 2px; margin-bottom: 28px; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+  .tab-bar::-webkit-scrollbar { display: none; }
+  .tab-btn { padding: 10px 18px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500; color: var(--muted); background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; white-space: nowrap; transition: all .15s; display: flex; align-items: center; gap: 7px; }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; animation: fadeUp .2s ease; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .section-label { font-size: 10px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin-bottom: 14px; }
+
+  /* ── Pattern cards ── */
+  .pattern-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .pattern-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; cursor: pointer; transition: all .18s; position: relative; overflow: hidden; }
+  .pattern-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: transparent; transition: background .18s; }
+  .pattern-card:hover { border-color: var(--border2); background: var(--bg3); }
+  .pattern-card.selected { border-color: var(--accent); background: var(--bg3); }
+  .pattern-card.selected::before { background: var(--accent); }
+  .pat-icon { font-size: 22px; margin-bottom: 8px; }
+  .pat-name { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .badge { font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 10px; letter-spacing: .04em; text-transform: uppercase; }
+  .badge-blue   { background: rgba(56,189,248,.12); color: var(--accent); border: 1px solid rgba(56,189,248,.25); }
+  .badge-green  { background: rgba(52,211,153,.12); color: var(--accent2); border: 1px solid rgba(52,211,153,.25); }
+  .badge-amber  { background: rgba(251,191,36,.12); color: var(--amber); border: 1px solid rgba(251,191,36,.25); }
+  .badge-purple { background: rgba(167,139,250,.12); color: var(--purple); border: 1px solid rgba(167,139,250,.25); }
+  .badge-orange { background: rgba(251,146,60,.12); color: var(--orange); border: 1px solid rgba(251,146,60,.25); }
+  .badge-rose   { background: rgba(251,113,133,.12); color: var(--rose); border: 1px solid rgba(251,113,133,.25); }
+  .pat-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* ── Code block ── */
+  .code-block { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 16px; }
+  .code-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--bg3); }
+  .code-header-left { display: flex; align-items: center; gap: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot-r { background: #ff5f57; } .dot-y { background: #febc2e; } .dot-g { background: #28c840; }
+  .code-filename { font-size: 11px; color: var(--muted); margin-left: 4px; }
+  .copy-btn { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); background: none; border: 1px solid var(--border); border-radius: 4px; padding: 3px 10px; cursor: pointer; transition: all .15s; }
+  .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .copy-btn.copied { color: var(--accent2); border-color: var(--accent2); }
+  .code-body { padding: 16px; font-size: 12.5px; line-height: 1.65; color: var(--text); white-space: pre-wrap; word-break: break-word; max-height: 380px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
+  .code-body::-webkit-scrollbar { width: 4px; }
+  .code-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* ── Callouts ── */
+  .callout { border-left: 2px solid; padding: 12px 16px; border-radius: 0 var(--radius) var(--radius) 0; margin-bottom: 14px; font-size: 12.5px; line-height: 1.6; }
+  .callout-title { font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+  .callout.tip  { border-color: var(--accent2); background: rgba(52,211,153,.06); }
+  .callout.tip .callout-title  { color: var(--accent2); }
+  .callout.warn { border-color: var(--amber);   background: rgba(251,191,36,.06); }
+  .callout.warn .callout-title { color: var(--amber); }
+  .callout.info { border-color: var(--accent);  background: rgba(56,189,248,.06); }
+  .callout.info .callout-title { color: var(--accent); }
+  .callout p { color: var(--muted); }
+  .callout code { font-family: 'JetBrains Mono', monospace; font-size: 11px; background: var(--bg4); padding: 1px 5px; border-radius: 3px; color: var(--text); }
+
+  /* ── Generator ── */
+  .field-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; letter-spacing: .04em; }
+  .task-list { margin-bottom: 10px; }
+  .task-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; animation: fadeUp .15s ease; }
+  .task-num { font-size: 11px; color: var(--dim); min-width: 22px; text-align: right; flex-shrink: 0; }
+  input[type="text"], select { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); padding: 8px 12px; transition: border-color .15s; outline: none; }
+  input[type="text"] { flex: 1; }
+  input[type="text"]:focus, select:focus { border-color: var(--border2); }
+  select { padding-right: 8px; cursor: pointer; }
+  .task-del { width: 28px; height: 28px; background: none; border: none; color: var(--dim); cursor: pointer; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 17px; transition: all .15s; flex-shrink: 0; }
+  .task-del:hover { background: rgba(251,113,133,.12); color: var(--rose); }
+  .add-task { width: 100%; background: none; border: 1px dashed var(--border2); color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 9px; border-radius: var(--radius); cursor: pointer; transition: all .15s; margin-bottom: 18px; }
+  .add-task:hover { border-color: var(--accent); color: var(--accent); background: rgba(56,189,248,.04); }
+  .options-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+  .option-group { display: flex; flex-direction: column; gap: 6px; }
+  .gen-btn { width: 100%; padding: 12px; background: var(--accent); color: #0c0f14; border: none; border-radius: var(--radius); font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; transition: all .15s; letter-spacing: .02em; margin-bottom: 20px; }
+  .gen-btn:hover { background: #7dd3fc; transform: translateY(-1px); }
+  .gen-btn:active { transform: translateY(0); }
+
+  /* ── Comparison table ── */
+  .cmp-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; }
+  .cmp-table th { text-align: left; padding: 10px 12px; font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); border-bottom: 1px solid var(--border); }
+  .cmp-table th:nth-child(2) { color: #4ade80; }
+  .cmp-table th:nth-child(3) { color: var(--accent); }
+  .cmp-table td { padding: 11px 12px; border-bottom: 1px solid var(--border); color: var(--muted); vertical-align: top; line-height: 1.5; }
+  .cmp-table tr:last-child td { border-bottom: none; }
+  .cmp-table tr:hover td { background: var(--bg2); }
+  .cmp-table td:first-child { color: var(--text); font-weight: 500; white-space: nowrap; }
+  .cmp-table code { font-size: 10px; background: var(--bg4); padding: 1px 4px; border-radius: 3px; color: var(--text); }
+
+  /* ── Routing table ── */
+  .rt-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-bottom: 20px; }
+  .rt-table th { text-align: left; padding: 10px 14px; font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .rt-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--muted); vertical-align: top; line-height: 1.55; }
+  .rt-table tr:last-child td { border-bottom: none; }
+  .rt-table tr:hover td { background: var(--bg2); color: var(--text); }
+  .rt-table td strong { color: var(--text); font-weight: 500; }
+  .cond-tag { display: inline-block; font-size: 9px; padding: 2px 6px; border-radius: 4px; margin-bottom: 5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+  .cond-all { background: rgba(52,211,153,.12); color: var(--accent2); }
+  .cond-any { background: rgba(56,189,248,.12); color: var(--accent); }
+  .rt-ex { font-size: 11px; color: var(--dim); font-style: italic; }
+
+  /* ── Agents grid ── */
+  .agents-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .agent-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px; transition: border-color .15s; }
+  .agent-card:hover { border-color: var(--border2); }
+  .agent-name { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 5px; }
+  .agent-mode { font-size: 10px; color: var(--dim); margin-bottom: 6px; }
+  .agent-desc { font-size: 11.5px; color: var(--muted); line-height: 1.5; margin-bottom: 9px; }
+  .agent-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+
+  /* ── Footer ── */
+  footer { margin-top: 60px; border-top: 1px solid var(--border); padding: 28px 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-size: 11px; color: var(--dim); }
+  footer a { color: var(--muted); text-decoration: none; transition: color .15s; }
+  footer a:hover { color: var(--accent); }
+  .footer-links { display: flex; gap: 20px; }
+
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  @media (max-width: 580px) {
+    .options-row { grid-template-columns: 1fr; }
+    .pattern-grid { grid-template-columns: 1fr; }
+    .agents-grid { grid-template-columns: 1fr; }
+    .cmp-table th:last-child, .cmp-table td:last-child { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Cross-tool nav -->
+  <nav class="tool-nav" aria-label="Switch tool">
+    <span class="tool-nav-label">Also:</span>
+    <a class="tool-link" href="index.html">
+      <span class="tl-dot tl-green"></span> Claude Code
+    </a>
+    <a class="tool-link active" href="opencode.html">
+      <span class="tl-dot tl-blue"></span> OpenCode
+    </a>
+  </nav>
+
+  <!-- Header -->
+  <header>
+    <div class="header-top">
+      <div>
+        <div class="logo-row">
+          <div class="logo-icon">⊙</div>
+          <span class="logo-label">OpenCode</span>
+        </div>
+        <h1>Multi-Agent<br><em>Workflow Builder</em></h1>
+        <div class="header-meta">Agent patterns · Prompt generator · AGENTS.md rules · Custom agent config</div>
+      </div>
+      <a class="gh-badge" href="https://github.com/anomalyco/opencode" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        opencode on GitHub
+      </a>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <nav class="tab-bar" role="tablist">
+    <button class="tab-btn active" onclick="showTab('patterns', this)"><span>◈</span> Patterns</button>
+    <button class="tab-btn" onclick="showTab('generator', this)"><span>⚙</span> Prompt Generator</button>
+    <button class="tab-btn" onclick="showTab('routing', this)"><span>⇢</span> AGENTS.md Rules</button>
+    <button class="tab-btn" onclick="showTab('agents', this)"><span>⊙</span> Built-in Agents</button>
+    <button class="tab-btn" onclick="showTab('compare', this)"><span>⇌</span> vs Claude Code</button>
+  </nav>
+
+  <!-- ── TAB: PATTERNS ── -->
+  <section class="tab-panel active" id="tab-patterns" role="tabpanel">
+    <div class="section-label">Select a dispatch pattern</div>
+    <div class="pattern-grid" id="pattern-grid"></div>
+    <div id="pattern-detail"></div>
+    <div class="callout tip">
+      <div class="callout-title">OpenCode advantage</div>
+      <p>Each subagent runs in its own session with its own context window. You can assign a different model per subagent — e.g. use Gemini for research, Claude for implementation, GPT for review — all in one workflow.</p>
+    </div>
+    <div class="callout warn">
+      <div class="callout-title">Watch out for</div>
+      <p>Agents with write access can modify files even when invoked as subagents. Use <code>"write": false, "edit": false</code> on research-only agents. Subagents with web access (Perplexity) should always be read-only on your filesystem.</p>
+    </div>
+  </section>
+
+  <!-- ── TAB: GENERATOR ── -->
+  <section class="tab-panel" id="tab-generator" role="tabpanel">
+    <div class="section-label">Build your multi-agent prompt</div>
+    <div class="field-label">Tasks (one per sub-agent)</div>
+    <div class="task-list" id="task-list"></div>
+    <button class="add-task" onclick="addTask()">+ add task</button>
+    <div class="options-row">
+      <div class="option-group">
+        <div class="field-label">Dispatch mode</div>
+        <select id="dispatch-mode">
+          <option value="parallel">@ parallel (simultaneous)</option>
+          <option value="sequential">Sequential pipeline</option>
+          <option value="task-tool">Task tool (auto-delegated)</option>
+          <option value="mention">@ mention (manual)</option>
+        </select>
+      </div>
+      <div class="option-group">
+        <div class="field-label">Output format</div>
+        <select id="output-format">
+          <option value="file">Save to separate files</option>
+          <option value="summary">Return summaries</option>
+          <option value="combined">Combine into one file</option>
+        </select>
+      </div>
+    </div>
+    <button class="gen-btn" onclick="generatePrompt()">Generate OpenCode prompt →</button>
+    <div id="prompt-output" style="display:none;"></div>
+  </section>
+
+  <!-- ── TAB: ROUTING ── -->
+  <section class="tab-panel" id="tab-routing" role="tabpanel">
+    <div class="section-label">AGENTS.md routing rules</div>
+    <p style="font-size:12.5px; color:var(--muted); margin-bottom:18px; line-height:1.6;">
+      OpenCode reads <code style="font-size:11px; background:var(--bg4); padding:1px 5px; border-radius:3px;">AGENTS.md</code> from your project root (or <code style="font-size:11px; background:var(--bg4); padding:1px 5px; border-radius:3px;">~/.config/opencode/AGENTS.md</code> for global rules). Run <code style="font-size:11px; background:var(--bg4); padding:1px 5px; border-radius:3px;">/init</code> to auto-generate from your codebase. Also reads <code style="font-size:11px; background:var(--bg4); padding:1px 5px; border-radius:3px;">CLAUDE.md</code> as a fallback.
+    </p>
+    <table class="rt-table">
+      <thead><tr><th>Pattern</th><th>Conditions</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>@ parallel</strong></td>
+          <td><span class="cond-tag cond-all">ALL must be true</span><br>3+ unrelated tasks<br>No shared state<br>Clear file scope per agent</td>
+          <td class="rt-ex">@general explore frontend, @explore scan api/, @general check tests</td>
+        </tr>
+        <tr>
+          <td><strong>Sequential</strong></td>
+          <td><span class="cond-tag cond-any">ANY triggers it</span><br>B depends on A's output<br>Shared file targets<br>Scope unclear upfront</td>
+          <td class="rt-ex">plan agent → build agent → review agent</td>
+        </tr>
+        <tr>
+          <td><strong>Task tool</strong></td>
+          <td>Primary agent auto-delegates<br>Based on description match<br>No manual @ needed</td>
+          <td class="rt-ex">Build agent spawns @code-reviewer automatically</td>
+        </tr>
+        <tr>
+          <td><strong>Hidden agents</strong></td>
+          <td>Set <code>hidden: true</code><br>Invoked by Task tool only<br>Not in @ autocomplete</td>
+          <td class="rt-ex">Internal orchestration agents</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="section-label">AGENTS.md routing snippet</div>
+    <div class="code-block">
+      <div class="code-header">
+        <div class="code-header-left">
+          <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+          <span class="code-filename">AGENTS.md</span>
+        </div>
+        <button class="copy-btn" onclick="copyEl('routing-code', this)">copy</button>
+      </div>
+      <pre class="code-body" id="routing-code">## Sub-agent routing
+
+**Parallel dispatch** (@ multiple agents simultaneously) — ALL must be true:
+- 3+ independent tasks with no shared state
+- Each agent owns distinct files/directories
+- Results can be merged after all complete
+
+**Sequential dispatch** — ANY condition triggers:
+- Output of agent A feeds into agent B
+- Multiple agents would write the same files
+- Scope needs to be understood before acting
+
+**Task tool (auto-delegation)**:
+- Primary agent decides based on agent descriptions
+- No @ mention needed — automatic based on task type
+- Use for specialist subagents (security, docs, tests)
+
+**Hidden subagents**:
+- Set hidden: true for internal-only orchestration agents
+- Only reachable via Task tool, not from @ autocomplete
+
+**Agent invocation requirements**:
+1. Specify scope: exact files, directories, or patterns
+2. Specify output: file path, format, or summary expected
+3. Specify model if non-default is needed
+4. Agents with write access can modify files — scope carefully</pre>
+    </div>
+    <div class="callout info">
+      <div class="callout-title">Claude Code compatibility</div>
+      <p>OpenCode reads <code>CLAUDE.md</code> as a fallback if no <code>AGENTS.md</code> exists. Migrating from Claude Code? Your existing rules file will work immediately. Disable this with <code>OPENCODE_DISABLE_CLAUDE_CODE=1</code>.</p>
+    </div>
+  </section>
+
+  <!-- ── TAB: AGENTS ── -->
+  <section class="tab-panel" id="tab-agents" role="tabpanel">
+    <div class="section-label">Built-in agents</div>
+    <div class="agents-grid">
+      <div class="agent-card">
+        <div class="agent-name">build</div>
+        <div class="agent-mode">mode: primary · default</div>
+        <div class="agent-desc">Default agent with all tools enabled. Full access to file ops and bash commands. Press Tab to switch to it.</div>
+        <div class="agent-tags"><span class="badge badge-green">read + write</span><span class="badge badge-blue">bash</span></div>
+      </div>
+      <div class="agent-card">
+        <div class="agent-name">plan</div>
+        <div class="agent-mode">mode: primary</div>
+        <div class="agent-desc">Read-only analysis agent. All file edits and bash commands require permission prompt. Ideal for safe code review.</div>
+        <div class="agent-tags"><span class="badge badge-amber">ask-only</span><span class="badge badge-blue">read-only</span></div>
+      </div>
+      <div class="agent-card">
+        <div class="agent-name">general</div>
+        <div class="agent-mode">mode: subagent</div>
+        <div class="agent-desc">General-purpose subagent for multi-step tasks. Has full tool access (except todo). Use for parallel units of work. Invoke with @general.</div>
+        <div class="agent-tags"><span class="badge badge-green">full access</span><span class="badge badge-purple">@mention</span></div>
+      </div>
+      <div class="agent-card">
+        <div class="agent-name">explore</div>
+        <div class="agent-mode">mode: subagent</div>
+        <div class="agent-desc">Fast read-only codebase explorer. Cannot modify files. Use for pattern matching, code search, and codebase questions.</div>
+        <div class="agent-tags"><span class="badge badge-blue">read-only</span><span class="badge badge-purple">@mention</span></div>
+      </div>
+      <div class="agent-card">
+        <div class="agent-name">compaction</div>
+        <div class="agent-mode">mode: hidden (auto)</div>
+        <div class="agent-desc">Automatically compacts long contexts into summaries when approaching the context window limit. Not user-selectable.</div>
+        <div class="agent-tags"><span class="badge badge-amber">hidden</span><span class="badge badge-blue">auto</span></div>
+      </div>
+      <div class="agent-card">
+        <div class="agent-name">title / summary</div>
+        <div class="agent-mode">mode: hidden (auto)</div>
+        <div class="agent-desc">System agents that auto-generate session titles and summaries. Run silently in the background.</div>
+        <div class="agent-tags"><span class="badge badge-amber">hidden</span><span class="badge badge-blue">system</span></div>
+      </div>
+    </div>
+
+    <div class="section-label">Custom agent — JSON config</div>
+    <div class="code-block">
+      <div class="code-header">
+        <div class="code-header-left">
+          <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+          <span class="code-filename">opencode.json</span>
+        </div>
+        <button class="copy-btn" onclick="copyEl('agent-json', this)">copy</button>
+      </div>
+      <pre class="code-body" id="agent-json">{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "code-reviewer": {
+      "description": "Reviews code for security, performance, and best practices. Invoke after implementation.",
+      "mode": "subagent",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "temperature": 0.1,
+      "steps": 20,
+      "permissions": {
+        "write": false,
+        "edit": false,
+        "bash": false
+      }
+    },
+    "researcher": {
+      "description": "Research agent using Perplexity for real-time web search. Never modifies files.",
+      "mode": "subagent",
+      "model": "perplexity/sonar-pro",
+      "temperature": 0.8,
+      "permissions": {
+        "write": false,
+        "edit": false,
+        "bash": false
+      }
+    }
+  }
+}</pre>
+    </div>
+
+    <div class="section-label">Custom agent — markdown file</div>
+    <div class="code-block">
+      <div class="code-header">
+        <div class="code-header-left">
+          <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+          <span class="code-filename">.opencode/agents/security-auditor.md</span>
+        </div>
+        <button class="copy-btn" onclick="copyEl('agent-md', this)">copy</button>
+      </div>
+      <pre class="code-body" id="agent-md">---
+description: Security auditor. Reviews code for vulnerabilities, injection risks, auth issues, and secrets exposure. Invoke after any auth or data-handling changes.
+mode: subagent
+model: anthropic/claude-sonnet-4-20250514
+temperature: 0.1
+permissions:
+  write: false
+  edit: false
+  bash: false
+---
+
+You are a security auditor. Review the provided code for:
+- SQL/command injection vulnerabilities
+- Authentication and authorisation bypasses
+- Hardcoded secrets or API keys
+- Insecure direct object references
+- Missing input validation
+
+Return a structured report: CRITICAL / HIGH / MEDIUM / LOW findings.
+Do not modify any files.</pre>
+    </div>
+
+    <div class="callout tip">
+      <div class="callout-title">Per-agent models</div>
+      <p>OpenCode lets each agent use a different model. Set <code>model: "perplexity/sonar-pro"</code> on a researcher, <code>model: "anthropic/claude-haiku-4-20250514"</code> on a boilerplate agent, and <code>model: "anthropic/claude-sonnet-4-20250514"</code> on your primary build agent. This cuts costs dramatically on large fan-outs.</p>
+    </div>
+  </section>
+
+  <!-- ── TAB: COMPARE ── -->
+  <section class="tab-panel" id="tab-compare" role="tabpanel">
+    <div class="section-label">OpenCode vs Claude Code — multi-agent comparison</div>
+    <table class="cmp-table">
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>Claude Code</th>
+          <th>OpenCode</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Primary agents</td>
+          <td>Orchestrator (general) built-in</td>
+          <td><code>build</code> + <code>plan</code> — switch with Tab</td>
+        </tr>
+        <tr>
+          <td>Subagents</td>
+          <td><code>explore</code>, custom via <code>.claude/agents/</code></td>
+          <td><code>general</code>, <code>explore</code>, custom via <code>.opencode/agents/</code></td>
+        </tr>
+        <tr>
+          <td>Invoke subagent</td>
+          <td>Prompt: "use N parallel sub-agents"</td>
+          <td><code>@agent-name</code> mention or Task tool auto-dispatch</td>
+        </tr>
+        <tr>
+          <td>Per-agent model</td>
+          <td>Specify model in agent .md file</td>
+          <td>First-class: <code>model:</code> field, any of 75+ providers</td>
+        </tr>
+        <tr>
+          <td>Per-agent temperature</td>
+          <td>Not supported</td>
+          <td>First-class: <code>temperature:</code> field per agent</td>
+        </tr>
+        <tr>
+          <td>Max steps limit</td>
+          <td>Not available</td>
+          <td><code>steps:</code> field — stops & summarises at limit</td>
+        </tr>
+        <tr>
+          <td>Hidden agents</td>
+          <td><code>hidden: true</code> in .md frontmatter</td>
+          <td><code>hidden: true</code> — hides from @ autocomplete</td>
+        </tr>
+        <tr>
+          <td>Rules file</td>
+          <td><code>CLAUDE.md</code></td>
+          <td><code>AGENTS.md</code> (reads <code>CLAUDE.md</code> as fallback)</td>
+        </tr>
+        <tr>
+          <td>Config format</td>
+          <td>Markdown frontmatter only</td>
+          <td>JSON (<code>opencode.json</code>) or Markdown</td>
+        </tr>
+        <tr>
+          <td>Session navigation</td>
+          <td>Not applicable</td>
+          <td>Parent/child sessions — navigate with Leader+Down/Up</td>
+        </tr>
+        <tr>
+          <td>Model providers</td>
+          <td>Anthropic Claude only</td>
+          <td>75+ providers: Anthropic, OpenAI, Gemini, Ollama, etc.</td>
+        </tr>
+        <tr>
+          <td>Non-interactive mode</td>
+          <td><code>claude -p "prompt"</code></td>
+          <td><code>opencode -p "prompt"</code> · JSON output with <code>-f json</code></td>
+        </tr>
+        <tr>
+          <td>Parallel sessions</td>
+          <td>Run multiple terminal instances</td>
+          <td>Multi-session built-in: <code>opencode -c /path</code></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="callout info">
+      <div class="callout-title">Migration from Claude Code</div>
+      <p>OpenCode reads <code>CLAUDE.md</code> and <code>~/.claude/CLAUDE.md</code> as fallbacks. Your existing agent definitions in <code>.claude/agents/</code> won't auto-load, but the format is similar — rename the folder to <code>.opencode/agents/</code> and update <code>model:</code> to use provider-prefixed names like <code>anthropic/claude-sonnet-4-20250514</code>.</p>
+    </div>
+    <div style="text-align:center; margin-top:24px;">
+      <a href="index.html" style="display:inline-flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); text-decoration:none; border:1px solid var(--border); padding:9px 18px; border-radius:20px; transition:all .15s;">
+        <span>←</span> Open Claude Code workflow builder
+      </a>
+    </div>
+  </section>
+
+  <footer>
+    <span>OpenCode Multi-Agent Workflow Builder · Open source · <a href="https://opencode.ai/docs/agents/" target="_blank" rel="noopener">Docs</a></span>
+    <div class="footer-links">
+      <a href="https://opencode.ai" target="_blank" rel="noopener">opencode.ai</a>
+      <a href="https://github.com/anomalyco/opencode" target="_blank" rel="noopener">GitHub</a>
+      <a href="index.html">Claude Code ↗</a>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+const PATTERNS = [
+  {
+    id: 'at-mention',
+    icon: '@',
+    name: '@ Mention',
+    badge: { label: 'direct', cls: 'badge-blue' },
+    desc: 'Manually invoke a subagent by @mentioning it in your message. Best when you know exactly which specialist you need.',
+    example: {
+      filename: 'at-mention-example.txt',
+      code: `@explore Find all files in src/ that import from the auth module.
+List each file and the specific imports used.
+
+@general Analyse those auth imports and identify which ones
+could be replaced with the new unified auth hook in hooks/useAuth.ts.
+Save findings to refactor-plan.md.`
+    }
+  },
+  {
+    id: 'task-tool',
+    icon: '⇢',
+    name: 'Task tool (auto)',
+    badge: { label: 'automatic', cls: 'badge-green' },
+    desc: 'Primary agent automatically spawns subagents via the Task tool based on description matching. No @ needed.',
+    example: {
+      filename: 'task-tool-example.txt',
+      code: `Add rate limiting to our Express API using Redis.
+
+(The build agent will automatically:
+ 1. Invoke @researcher to get current Redis patterns
+ 2. Implement the solution using fresh docs
+ 3. Invoke @code-reviewer to validate the result)
+
+The researcher agent has Perplexity access and is read-only.
+The reviewer checks security and performance without modifying files.`
+    }
+  },
+  {
+    id: 'parallel',
+    icon: '⇉',
+    name: 'Parallel @mentions',
+    badge: { label: 'fast', cls: 'badge-amber' },
+    desc: 'Invoke multiple @agents simultaneously in one message. Each runs in its own child session with its own context.',
+    example: {
+      filename: 'parallel-example.txt',
+      code: `Use multiple agents to explore this codebase simultaneously:
+
+@explore Scan frontend/ — list all components, their props, and dependencies.
+Save to explore-frontend.md.
+
+@explore Scan api/ — list all route handlers, middleware, and DB calls.
+Save to explore-api.md.
+
+@explore Scan tests/ — inventory all test files, their coverage, and any skipped tests.
+Save to explore-tests.md.
+
+After all three complete, I'll synthesise into architecture-overview.md.`
+    }
+  },
+  {
+    id: 'sequential',
+    icon: '→',
+    name: 'Sequential pipeline',
+    badge: { label: 'safe', cls: 'badge-blue' },
+    desc: 'Chain agents in order where each uses the prior output. Switch agents with Tab or @ mention after each stage.',
+    example: {
+      filename: 'sequential-example.txt',
+      code: `Stage 1 — plan agent:
+Analyse src/payments/ and write implementation-plan.md
+listing all files to change, interfaces to update, and edge cases.
+Do NOT make any changes yet.
+
+[After Stage 1 completes, switch to build agent with Tab]
+
+Stage 2 — build agent:
+Read implementation-plan.md and implement the Stripe integration.
+Save each modified file and log changes to changes/stripe.md.
+
+[After Stage 2 completes]
+
+@code-reviewer Read changes/stripe.md and all modified files.
+Produce security-review.md with any issues found.`
+    }
+  },
+  {
+    id: 'mixed-model',
+    icon: '◈',
+    name: 'Mixed-model pipeline',
+    badge: { label: 'cost-efficient', cls: 'badge-purple' },
+    desc: 'Assign different models per agent. Use Perplexity for research, Haiku for boilerplate, Sonnet for core logic.',
+    example: {
+      filename: 'mixed-model-example.txt',
+      code: `Implement WebSocket reconnection for our Node.js app.
+
+The workflow uses three specialist agents:
+
+1. @researcher (Perplexity Sonar Pro):
+   Search for current 2025 WebSocket reconnection best practices.
+   Focus on exponential backoff, jitter, and heartbeat patterns.
+   Save to research/websocket-patterns.md.
+   [Read-only — no file modifications]
+
+2. @general (Claude Haiku — after research):
+   Read research/websocket-patterns.md and scaffold the
+   reconnection utility in src/ws/reconnect.ts.
+
+3. @code-reviewer (Claude Sonnet — after implementation):
+   Review src/ws/reconnect.ts for edge cases and race conditions.
+   Write review.md. Do not modify the implementation.`
+    }
+  },
+  {
+    id: 'hidden-orchestrator',
+    icon: '⊙',
+    name: 'Hidden orchestrator',
+    badge: { label: 'advanced', cls: 'badge-orange' },
+    desc: 'A hidden primary agent that auto-spawns specialist subagents via Task tool. Invisible in @ autocomplete.',
+    example: {
+      filename: 'hidden-orchestrator.txt',
+      code: `# .opencode/agents/orchestrator.md
+---
+description: >
+  Orchestrates complex features by breaking them into tasks
+  and delegating to specialist subagents automatically.
+mode: primary
+hidden: true
+model: anthropic/claude-sonnet-4-20250514
+---
+
+When given a feature request:
+1. Break it into discrete, file-scoped tasks
+2. Delegate read-only research to @researcher
+3. Delegate implementation to @general
+4. Delegate validation to @code-reviewer
+5. Synthesise results into a feature-summary.md
+
+Never implement directly — always delegate to specialists.
+Ensure no two specialists modify the same file simultaneously.`
+    }
+  }
+];
+
+let selectedId = 'at-mention';
+
+function renderPatterns() {
+  const grid = document.getElementById('pattern-grid');
+  grid.innerHTML = PATTERNS.map(p => `
+    <div class="pattern-card${p.id === selectedId ? ' selected' : ''}"
+         onclick="selectPattern('${p.id}')"
+         role="button" tabindex="0"
+         onkeydown="if(event.key==='Enter'||event.key===' ')selectPattern('${p.id}')">
+      <div class="pat-icon">${p.icon}</div>
+      <div class="pat-name">${p.name} <span class="badge ${p.badge.cls}">${p.badge.label}</span></div>
+      <div class="pat-desc">${p.desc}</div>
+    </div>`).join('');
+}
+
+function selectPattern(id) {
+  selectedId = id;
+  renderPatterns();
+  const p = PATTERNS.find(x => x.id === id);
+  document.getElementById('pattern-detail').innerHTML = `
+    <div class="code-block">
+      <div class="code-header">
+        <div class="code-header-left">
+          <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+          <span class="code-filename">${p.example.filename}</span>
+        </div>
+        <button class="copy-btn" onclick="copyEl('pat-code', this)">copy</button>
+      </div>
+      <pre class="code-body" id="pat-code">${escHtml(p.example.code)}</pre>
+    </div>`;
+}
+
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+let tasks = [
+  { label: 'Explore frontend components in src/', role: 'explore' },
+  { label: 'Analyse backend API routes in api/', role: 'general' },
+  { label: 'Research current best practices online', role: 'researcher' }
+];
+const ROLES = ['explore','general','build','plan','code-reviewer','researcher','test','docs'];
+
+function renderTasks() {
+  document.getElementById('task-list').innerHTML = tasks.map((t, i) => `
+    <div class="task-row">
+      <span class="task-num">${i+1}.</span>
+      <input type="text" value="${escAttr(t.label)}" placeholder="Describe what this agent does..."
+             oninput="tasks[${i}].label=this.value" />
+      <select onchange="tasks[${i}].role=this.value">
+        ${ROLES.map(r => `<option value="${r}"${t.role===r?' selected':''}>${r}</option>`).join('')}
+      </select>
+      <button class="task-del" onclick="removeTask(${i})" aria-label="Remove">×</button>
+    </div>`).join('');
+}
+
+function escAttr(s) { return s.replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function addTask() { tasks.push({ label: '', role: 'general' }); renderTasks(); const inp = document.querySelectorAll('.task-row input[type=text]'); if (inp.length) inp[inp.length-1].focus(); }
+function removeTask(i) { if (tasks.length === 1) return; tasks.splice(i, 1); renderTasks(); }
+
+function generatePrompt() {
+  const mode = document.getElementById('dispatch-mode').value;
+  const fmt  = document.getElementById('output-format').value;
+  const valid = tasks.filter(t => t.label.trim());
+  if (!valid.length) return;
+
+  const outNote = fmt === 'file' ? 'Save output to a dedicated markdown file.'
+               : fmt === 'summary' ? 'Return a concise summary when done.'
+               : 'Append findings to combined-output.md.';
+
+  let prompt = '';
+
+  if (mode === 'parallel') {
+    prompt = `Invoke ${valid.length} agents simultaneously:\n\n`;
+    valid.forEach((t,i) => {
+      prompt += `@${t.role} (agent ${i+1}): ${t.label}\n  → ${outNote}\n\n`;
+    });
+    prompt += fmt === 'combined'
+      ? `After all agents complete, synthesise into combined-output.md.`
+      : `All agents run in parallel in their own child sessions.`;
+  } else if (mode === 'sequential') {
+    prompt = `Sequential pipeline — each stage waits for the prior:\n\n`;
+    valid.forEach((t,i) => {
+      prompt += `Stage ${i+1} — @${t.role}: ${t.label}\n  → ${outNote}\n`;
+      if (i < valid.length-1) prompt += `  (Pass output to Stage ${i+2})\n`;
+      prompt += '\n';
+    });
+    prompt += `Switch primary agent with Tab between stages as needed.`;
+  } else if (mode === 'task-tool') {
+    prompt = `Complete the following tasks. Use your specialist subagents\nautomatically via the Task tool as appropriate:\n\n`;
+    valid.forEach((t,i) => {
+      prompt += `Task ${i+1}: ${t.label}\n  Preferred specialist: @${t.role}\n  → ${outNote}\n\n`;
+    });
+    prompt += `Delegate to the appropriate subagent based on their descriptions.\nEnsure no two agents modify the same file simultaneously.`;
+  } else if (mode === 'mention') {
+    prompt = `Invoke each specialist agent manually:\n\n`;
+    valid.forEach((t,i) => {
+      prompt += `@${t.role} ${t.label}\n→ ${outNote}\n\n`;
+    });
+  }
+
+  const out = document.getElementById('prompt-output');
+  out.style.display = 'block';
+  out.innerHTML = `
+    <div class="code-block">
+      <div class="code-header">
+        <div class="code-header-left">
+          <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+          <span class="code-filename">generated-prompt.txt</span>
+        </div>
+        <button class="copy-btn" onclick="copyEl('gen-output', this)">copy</button>
+      </div>
+      <pre class="code-body" id="gen-output">${escHtml(prompt.trim())}</pre>
+    </div>
+    <p style="font-size:11.5px; color:var(--muted); margin-top:8px;">Paste this into your OpenCode session.</p>`;
+  out.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function copyEl(id, btn) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    const orig = btn.textContent; btn.textContent = '✓ copied'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1800);
+  }).catch(() => {
+    const ta = document.createElement('textarea'); ta.value = el.textContent;
+    ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+  });
+}
+
+renderPatterns();
+selectPattern('at-mention');
+renderTasks();
+</script>
+</body>
+</html>
